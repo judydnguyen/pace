@@ -29,6 +29,13 @@ MODELS = [
     "Kimi-K2.5", "MiniMax-M2.1", "MiniMax-M2.5",
     "Qwen3-Coder-480B-A35B-Instruct",
 ]
+
+# Override the model panel without editing this file (comma-separated names
+# matching the CSV filenames under BASE_DIR), e.g. for running the pipeline
+# against a different standardized-results tree via PROXYBENCH_BASE_DIR.
+if os.environ.get("PROXYBENCH_MODELS"):
+    MODELS = [m.strip() for m in os.environ["PROXYBENCH_MODELS"].split(",") if m.strip()]
+
 N_MODELS = len(MODELS)
 
 TARGET_DATASETS  = {"gaia", "swebench", "swebench_multimodal", "swtbench"}
