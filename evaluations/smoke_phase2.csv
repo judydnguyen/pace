@@ -1,0 +1,7 @@
+mode,fold,target,benchmark,subdir,instance_id,col_idx,weight
+FULL,ALL,generic,lifbench,list-blur_offset_query_element,0_0_3,0,0
+FULL,ALL,generic,lifbench,list-blur_offset_query_id,0_0_3,0,0
+FULL,ALL,generic,lifbench,list-multi_query_id,0_0_3,0,0
+FULL,ALL,generic,lifbench,list-offset_query_element,0_0_3,0,0
+FULL,ALL,generic,lifbench,list-offset_query_id,0_0_3,0,0
+FULL,ALL,generic,lifbench,list-single_query_id,0_0_3,0,0

@@ -608,7 +608,11 @@ class TemplateAPI(TemplateLM):
         **kwargs,
     ) -> Union[List[List[str]], List[List[Tuple[float, bool]]]]:
         ctxlens = ctxlens if ctxlens else [None] * len(requests)
-        conn = TCPConnector(limit=self._concurrent, ssl=self.verify_certificate)
+        # force_close: the coco daemon desyncs responses on reused keep-alive
+        # connections (off-by-one shifts observed even at num_concurrent=1);
+        # a fresh connection per request makes response-crossing impossible.
+        conn = TCPConnector(limit=self._concurrent, ssl=self.verify_certificate,
+                            force_close=True)
         sem = asyncio.Semaphore(self._concurrent)
         async with ClientSession(
             connector=conn, timeout=ClientTimeout(total=self.timeout)

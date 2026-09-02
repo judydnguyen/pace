@@ -1,0 +1,4 @@
+mode,fold,target,benchmark,subdir,instance_id,col_idx,weight
+FULL,ALL,generic,livecodebench,codeexecution,0,0,0
+FULL,ALL,generic,livecodebench,codeexecution,0,0,0
+FULL,ALL,generic,livecodebench,selfrepair,0,0,0
