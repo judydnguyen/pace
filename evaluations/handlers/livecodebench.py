@@ -3,6 +3,7 @@
 import contextlib
 import os
 import sys
+import threading
 
 _HANDLERS_DIR = os.path.dirname(os.path.abspath(__file__))
 _EVALUATIONS_DIR = os.path.dirname(_HANDLERS_DIR)
@@ -23,6 +24,39 @@ def _in_lcb_dir():
         yield
     finally:
         os.chdir(prev)
+
+
+#: subtask -> loaded+sorted split. The lcb_runner loaders re-read and re-sort the
+#: whole release_latest split on EVERY call; scoring a full column is 2,305 calls,
+#: so that reload dominated the run (~3 instances/min, RSS oscillating to 15GB as
+#: each load re-allocated the test cases). The split is immutable, so load it once
+#: per process. Populated inside _in_lcb_dir() -- the loaders read relative paths.
+_DATASET_CACHE: dict = {}
+_DATASET_LOCK = threading.Lock()
+
+
+def _load_dataset(subtask: str):
+    """Load+sort a LiveCodeBench split once per process. Call inside _in_lcb_dir()."""
+    # codegeneration and selfrepair index into the same split
+    key = "codegeneration" if subtask in ("codegeneration", "selfrepair") else subtask
+    with _DATASET_LOCK:
+        if key not in _DATASET_CACHE:
+            if key == "codegeneration":
+                from lcb_runner.benchmarks.code_generation import load_code_generation_dataset
+                ds = sorted(load_code_generation_dataset("release_latest"),
+                            key=lambda x: x.question_id)
+            elif key == "testoutputprediction":
+                from lcb_runner.benchmarks.test_output_prediction import load_test_prediction_dataset
+                ds = sorted(load_test_prediction_dataset("release_latest"),
+                            key=lambda x: (x.question_id, x.test_id))
+            elif key == "codeexecution":
+                from lcb_runner.benchmarks.code_execution import load_code_execution_dataset
+                ds = sorted(load_code_execution_dataset("release_latest"),
+                            key=lambda x: int(x.id.split("_")[1]))
+            else:
+                raise ValueError(f"unknown subtask {subtask}")
+            _DATASET_CACHE[key] = ds
+    return _DATASET_CACHE[key]
 
 
 def _run_livecodebench(
@@ -60,24 +94,18 @@ def _run_livecodebench(
         # "release_v1" has only ~400 problems, so high indices (e.g. 974) went out
         # of range — the instance ids index into the release_latest ordering.
         if subtask in ("codegeneration", "selfrepair"):
-            from lcb_runner.benchmarks.code_generation import load_code_generation_dataset
             from lcb_runner.prompts.code_generation import format_prompt_generation
-            dataset = sorted(load_code_generation_dataset("release_latest"), key=lambda x: x.question_id)
-            problem = dataset[idx]
+            problem = _load_dataset(subtask)[idx]
             messages = format_prompt_generation(problem, LMStyle.OpenAIChat)
 
         elif subtask == "testoutputprediction":
-            from lcb_runner.benchmarks.test_output_prediction import load_test_prediction_dataset
             from lcb_runner.prompts.test_output_prediction import format_prompt_test_output
-            dataset = sorted(load_test_prediction_dataset("release_latest"), key=lambda x: (x.question_id, x.test_id))
-            problem = dataset[idx]
+            problem = _load_dataset(subtask)[idx]
             messages = format_prompt_test_output(problem, LMStyle.OpenAIChat)
 
         elif subtask == "codeexecution":
-            from lcb_runner.benchmarks.code_execution import load_code_execution_dataset
             from lcb_runner.prompts.code_execution import format_prompt_execution_cot
-            dataset = sorted(load_code_execution_dataset("release_latest"), key=lambda x: int(x.id.split("_")[1]))
-            problem = dataset[idx]
+            problem = _load_dataset(subtask)[idx]
             messages = format_prompt_execution_cot(problem, LMStyle.OpenAIChat)
 
     from openai import OpenAI
@@ -91,7 +119,14 @@ def _run_livecodebench(
         max_tokens=4096,
         timeout=300,
     )
-    output = response.choices[0].message.content or ""
+    # coco returns an EMPTY choices list when it content-filters a request -- the
+    # same gateway defect run_defbench_backfill.py patches for inspect. Indexing
+    # [0] raised IndexError and LOST the instance (3-10% of them per model, which
+    # is what left every column short). An answer the provider would not give is a
+    # WRONG answer, not missing data: fall through with empty output so the
+    # instance scores 0 and the id set stays complete and comparable.
+    _choices = getattr(response, "choices", None) or []
+    output = (_choices[0].message.content or "") if _choices else ""
 
     with _in_lcb_dir():
         if subtask in ("codegeneration", "selfrepair"):
