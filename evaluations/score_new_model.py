@@ -94,6 +94,19 @@ def eval_call(benchmark, subdir, instance_id):
     """(benchmark, subdir, id) -> (subtask_or_None, instance_id) for run_instance."""
     if benchmark == "repobench":
         return _REPOBENCH_METRIC.sub("", subdir), instance_id
+    # gpqa's subdirs are SUBSETS (diamond/extended/main), not metrics: instance 0
+    # exists in all three, so falling through to the diamond default would score
+    # the wrong document (and collapse the three rows into one call).
+    if benchmark == "gpqa" and subdir:
+        return f"gpqa_{subdir}_cot_zeroshot", instance_id
+    # mmlu_cot ids embed the subject ("college_biology_12"); the default subtask
+    # (abstract_algebra) would run every id against the wrong subject's docs.
+    if benchmark == "mmlu_cot":
+        return f"mmlu_{str(instance_id).rsplit('_', 1)[0]}_cot_generative", instance_id
+    # logiqa's "{doc}_{filter}" rows are two views of ONE generation — group
+    # them under the doc so the API is called once; extract() picks the filter.
+    if benchmark == "logiqa":
+        return None, str(instance_id).split("_", 1)[0]
     if benchmark in METRIC_SUBDIR:
         return None, instance_id
     if benchmark in SUBDIR_IS_SUBTASK and subdir:
@@ -101,9 +114,29 @@ def eval_call(benchmark, subdir, instance_id):
     return None, instance_id
 
 
-def extract(benchmark, subdir, result):
+def _pick_filter(result, name):
+    """lm_eval returns one sample per filter; pick the named one (fallback: first)."""
+    if isinstance(result, list):
+        for s in result:
+            if isinstance(s, dict) and s.get("filter") == name:
+                return s
+    return result[0] if isinstance(result, list) and result else result
+
+
+def extract(benchmark, subdir, result, instance_id=None):
     """Return (metric_name, score) for this row's subdir, or None if unscorable."""
     r = result[0] if isinstance(result, list) and result else result
+    # Multi-filter tasks: match the filter the standardized pool actually holds.
+    # gpqa leaves list each id twice (strict-match rows first — those are what
+    # pacebench's drop_duplicates keeps); mmlu_cot's official aggregate (and the
+    # repaired mmlu_cot_fixed leaf, means .90+) is flexible-extract; logiqa ids
+    # carry their filter as a suffix.
+    if benchmark == "gpqa":
+        r = _pick_filter(result, "strict-match")
+    elif benchmark == "mmlu_cot":
+        r = _pick_filter(result, "flexible-extract")
+    elif benchmark == "logiqa" and instance_id and "_" in str(instance_id):
+        r = _pick_filter(result, str(instance_id).split("_", 1)[1])
     if not isinstance(r, dict):
         return None
     b = benchmark
@@ -315,7 +348,7 @@ def main():
             if result is None:
                 continue
             for (bb, subdir, iid) in rows_by_key[key]:
-                ex = extract(bb, subdir, result)
+                ex = extract(bb, subdir, result, instance_id=iid)
                 if ex is None or ex[1] is None:
                     skipped[bb] += 1
                     continue

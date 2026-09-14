@@ -54,6 +54,14 @@ def standardized_id_to_doc_id(benchmark: str, subtask: str | None, instance_id: 
     if benchmark == "mmlu_cot":
         return int(s.split("_")[-1])
 
+    # humaneval_chat / mbpp_chat ids are the dataset task_ids ("HumanEval/7",
+    # "Mbpp/11"). HumanEval rows are ordered so doc_id == the numeric suffix;
+    # MBPP's test split is task_ids 11..510 in order, so doc_id == task_id - 11.
+    if benchmark == "humaneval_chat" and "/" in s:
+        return int(s.split("/")[1])
+    if benchmark == "mbpp_chat" and "/" in s:
+        return int(s.split("/")[1]) - 11
+
     return int(s)
 
 

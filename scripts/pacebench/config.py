@@ -80,18 +80,30 @@ DEFAULT_ALPHA = 0.1         # ridge regularization for pairwise logistic
 TASK_A_CONFIGS = {
     100: {   # previous canonical
         "gaia": dict(m=0.2, nc_h= 1, nc_d= 5, q=0.2),
+        "excytin_full25": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
+        "excytin40": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
+        "ctirealm25Up": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
+        "socbenchwide": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
         "swebench": dict(m=0.1, nc_h= 7, nc_d= 7, q=0.8),
         "swebench_multimodal": dict(m=0.9, nc_h=10, nc_d= 4, q=0.9),
         "swtbench": dict(m=0.7, nc_h= 8, nc_d= 3, q=0.9),
     },
     150: {   # budget-sweep optimum (new canonical)
         "gaia":                dict(m=0.3, nc_h=10, nc_d=5),    # MAE 6.11% / Sp 0.849
+        "excytin_full25": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
+        "excytin40": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
+        "ctirealm25Up": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
+        "socbenchwide": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
         "swebench":            dict(m=0.0, nc_h=1,  nc_d=2),    # MAE 2.04% / Sp 0.407
         "swebench_multimodal": dict(m=0.2, nc_h=10, nc_d=8),    # MAE 2.21% / Sp 0.870
         "swtbench":            dict(m=0.9, nc_h=6,  nc_d=3),    # MAE 4.71% / Sp 0.925
     },
     50: {
         "gaia":                dict(m=0.5, nc_h=2,  nc_d=5),    # MAE 6.13% / Sp 0.752
+        "excytin_full25": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
+        "excytin40": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
+        "ctirealm25Up": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
+        "socbenchwide": dict(m=0.5, nc_h=2, nc_d=3, q=0.5),  # pinned canonical, no tuning
         "swebench":            dict(m=0.7, nc_h=1,  nc_d=2),    # MAE 2.45% / Sp 0.559
         "swebench_multimodal": dict(m=0.7, nc_h=8,  nc_d=2),    # MAE 2.53% / Sp 0.764
         "swtbench":            dict(m=0.7, nc_h=4,  nc_d=7),    # MAE 6.27% / Sp 0.741

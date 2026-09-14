@@ -83,7 +83,18 @@ def _run_infobench(
         max_tokens=2048,
         timeout=300,
     )
-    output = gen_response.choices[0].message.content or ""
+    if not gen_response.choices or not (gen_response.choices[0].message.content or "").strip():
+        # Thinking models can burn the whole budget on internal reasoning and
+        # return empty choices; retry with headroom (only visible text is scored).
+        gen_response = chat_completion(
+            client,
+            model=model_name,
+            messages=[{"role": "user", "content": gen_prompt}],
+            temperature=0,
+            max_tokens=8192,
+            timeout=600,
+        )
+    output = (gen_response.choices[0].message.content or "") if gen_response.choices else ""
     gen_prompt_tokens = getattr(gen_response.usage, "prompt_tokens", 0)
     gen_completion_tokens = getattr(gen_response.usage, "completion_tokens", 0)
 
@@ -115,7 +126,19 @@ def _run_infobench(
                 max_tokens=50,
                 timeout=60,
             )
-            generation = eval_response.choices[0].message.content or ""
+            if not eval_response.choices or not (
+                    eval_response.choices[0].message.content or "").strip():
+                # thinking models: 50 tokens can vanish into reasoning
+                eval_response = chat_completion(
+                    client,
+                    model=model_name,
+                    messages=[{"role": "user", "content": content}],
+                    temperature=0,
+                    max_tokens=2048,
+                    timeout=120,
+                )
+            generation = (eval_response.choices[0].message.content or "") \
+                if eval_response.choices else ""
             eval_prompt_tokens += getattr(eval_response.usage, "prompt_tokens", 0)
             eval_completion_tokens += getattr(eval_response.usage, "completion_tokens", 0)
 

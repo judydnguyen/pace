@@ -1,6 +1,9 @@
 import json
 
-from anthropic import HUMAN_PROMPT, AI_PROMPT
+try:  # removed from the modern anthropic SDK; only used for LMStyle.Claude
+    from anthropic import HUMAN_PROMPT, AI_PROMPT
+except ImportError:
+    HUMAN_PROMPT = AI_PROMPT = None
 
 from lcb_runner.lm_styles import LMStyle
 

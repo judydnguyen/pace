@@ -95,7 +95,19 @@ def _run_lifbench(
         max_tokens=2048,
         timeout=300,
     )
-    output = response.choices[0].message.content or ""
+    if not response.choices or not (response.choices[0].message.content or "").strip():
+        # Thinking models (e.g. Copilot-served Claude/Gemini) can spend the whole
+        # budget on internal reasoning and return empty choices; retry with
+        # headroom — only the visible answer is scored either way.
+        response = chat_completion(
+            client,
+            model=model_name,
+            messages=[{"role": "user", "content": entry["prompt"]}],
+            temperature=0,
+            max_tokens=8192,
+            timeout=600,
+        )
+    output = (response.choices[0].message.content or "") if response.choices else ""
 
     if LIFBENCH_EVAL_DIR not in sys.path:
         sys.path.insert(0, LIFBENCH_EVAL_DIR)

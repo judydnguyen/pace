@@ -460,15 +460,38 @@ def _split_count(count, q):
     return cL, cG
 
 
-def _abs_score(met):
-    """Task A optimization objective: minimize (MAE_pp − Spearman).
-    MAE is rescaled to percentage points (×100) to put it on the same scale
-    as Spearman ∈ [−1, 1]; lower score is better.
+#: Which quantity --auto-tune minimises. Set with PACE_ABS_OBJECTIVE.
+#:
+#: `composite` (default, the original): 100*MAE - Spearman. The rescaling comment below
+#: claims a 1:1 trade-off, but that is only true per *unit*, and the two quantities do not
+#: span comparable ranges in practice. On a 13-model panel MAE_pp moves over ~6-11 while
+#: Spearman moves over ~-0.3 to +0.85, so the criterion is roughly 90% MAE. Measured case:
+#: at C=100 on excytin40 it selects (m=0.9, nc_h=5) -> MAE 6.29%, rho +0.730 over
+#: (m=1.0, nc_h=3) -> MAE 7.43%, rho +0.846. Reporting rho off a composite-tuned run
+#: therefore understates the method by ~0.12 and reads as a budget effect that is not one.
+#:
+#: `spearman` / `mae` / `pearson` / `r2`: optimise that single quantity. Use `spearman` when
+#: rank correlation is what will be reported.
+_OBJECTIVES = {
+    "composite": lambda m: 100 * m["MAE"] - m["Spearman"],
+    "spearman":  lambda m: -m["Spearman"],
+    "pearson":   lambda m: -m["Pearson"],
+    "r2":        lambda m: -m["R2"],
+    "mae":       lambda m: m["MAE"],
+}
 
-    Example: (MAE 3.6%, Sp 0.9) → 3.6 − 0.9 = 2.7  ←  preferred
-             (MAE 3.5%, Sp 0.7) → 3.5 − 0.7 = 2.8
-    A 0.2 Spearman gain offsets up to ~0.2pp MAE penalty (1:1 trade-off)."""
-    return 100 * met["MAE"] - met["Spearman"]
+
+def _abs_objective_name():
+    name = os.environ.get("PACE_ABS_OBJECTIVE", "composite").strip().lower()
+    if name not in _OBJECTIVES:
+        raise ValueError(f"PACE_ABS_OBJECTIVE={name!r}; expected one of {sorted(_OBJECTIVES)}")
+    return name
+
+
+def _abs_score(met):
+    """Task A tuning objective; lower is better. See _OBJECTIVES for the choices and for
+    why the default is not the right one when Spearman is the reported metric."""
+    return _OBJECTIVES[_abs_objective_name()](met)
 
 
 def _autotune_task_a(H_cache, D_cache, Y, target_names, nc_range, m_grid):
